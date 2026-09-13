@@ -3,6 +3,7 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const apiRoutes = require("./routes");
+const publicRouter = require("./renderer/publicRouter");
 
 const app = express();
 
@@ -17,6 +18,9 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api", apiRoutes);
+
+// Publieke, gerenderde site — moet als LAATSTE gemount worden, want /:slug vangt anders alles op
+app.use("/", publicRouter);
 
 // Algemene error handler (vangt onverwachte fouten op, i.p.v. dat de server crasht)
 app.use((err, req, res, next) => {

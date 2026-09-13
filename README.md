@@ -1,7 +1,8 @@
-# CMS Project — Fase 1 & 2
+# CMS Project — Fase 1, 2 & 3
 
 Fase 1: databaseschema (Prisma) + authenticatie-API (Express).
 Fase 2: CRUD voor pagina's, posts, categorieën en media-uploads.
+Fase 3: thema-systeem (thema's + templates) en de Public Renderer die de daadwerkelijke bezoekerspagina's toont.
 
 ## Vereisten
 
@@ -23,10 +24,14 @@ docker run --name cms-postgres -e POSTGRES_USER=cms_user \
   -e POSTGRES_PASSWORD=cms_password -e POSTGRES_DB=cms_db \
   -p 5432:5432 -d postgres:16
 
-# 4. Database-tabellen aanmaken op basis van het Prisma-schema
-npx prisma migrate dev --name init
+# 6. Migraties/schema toepassen (kies wat bij jouw situatie past)
+npx prisma db push          # snel, zonder migratiegeschiedenis (prima voor een solo-project)
+# of: npx prisma migrate dev --name init   # met migratiegeschiedenis
 
-# 5. Server starten (met auto-reload tijdens ontwikkelen)
+# 7. Basisthema + voorbeeldpagina inladen
+npm run prisma:seed
+
+# 8. Server starten (met auto-reload tijdens ontwikkelen)
 npm run dev
 ```
 
@@ -117,6 +122,45 @@ curl -X POST http://localhost:4000/api/media/upload \
   -F "file=@/pad/naar/foto.jpg"
 ```
 
+## Endpoints (fase 3) — thema's en templates
+
+| Methode | Endpoint | Omschrijving | Auth nodig |
+|---|---|---|---|
+| GET | `/api/themes` | Lijst van thema's | Nee |
+| GET | `/api/themes/:id` | Eén thema incl. templates | Nee |
+| POST | `/api/themes` | Nieuw thema aanmaken | ADMIN/EDITOR |
+| PUT | `/api/themes/:id` | Thema bijwerken | ADMIN/EDITOR |
+| POST | `/api/themes/:id/activate` | Dit thema actief maken (deactiveert de rest) | ADMIN/EDITOR |
+| DELETE | `/api/themes/:id` | Thema verwijderen | ADMIN/EDITOR |
+| GET | `/api/themes/:id/templates` | Templates van dit thema | Nee |
+| POST | `/api/themes/:id/templates` | Nieuwe template toevoegen (type: HEADER/FOOTER/PAGE/POST/ARCHIVE) | ADMIN/EDITOR |
+| PUT | `/api/templates/:id` | HTML/CSS van een template bijwerken | ADMIN/EDITOR |
+| DELETE | `/api/templates/:id` | Template verwijderen | ADMIN/EDITOR |
+
+### Hoe de publieke site werkt
+
+Zodra er een actief thema is (via de seed, of via `/api/themes/:id/activate`), toont de server automatisch:
+
+| URL | Toont |
+|---|---|
+| `/` | De pagina met slug `home`, of een welkomstbericht als die niet bestaat |
+| `/blog` | Overzicht van gepubliceerde posts (ARCHIVE-template) |
+| `/blog/mijn-artikel` | Eén post (POST-template) |
+| `/over-ons` | Een pagina met die slug (PAGE-template), of 404 als niet gevonden/gepubliceerd |
+
+Templates gebruiken Handlebars-placeholders: `{{title}}`, `{{{content}}}`, `{{siteName}}`, `{{year}}`. De drievoudige accolades (`{{{ }}}`) zorgen dat HTML niet wordt "escaped" — nodig voor de content zelf.
+
+### Voorbeeld: een tweede pagina aanmaken en meteen zien
+
+```bash
+curl -X POST http://localhost:4000/api/pages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN_HIER>" \
+  -d '{"title":"Over ons","status":"PUBLISHED","content":{"html":"<p>Wij zijn een bedrijf dat...</p>"}}'
+```
+
+Open daarna `http://localhost:4000/over-ons` in je browser.
+
 ## Database bekijken
 
 Prisma heeft een ingebouwde gui om je database te inspecteren:
@@ -138,13 +182,18 @@ cms-project/
 │   │   ├── slugify.js      # Titel -> URL-vriendelijke slug
 │   │   └── uniqueSlug.js   # Zorgt dat een slug uniek is in de tabel
 │   ├── middleware/auth.js  # JWT-verificatie en rolcontrole
+│   ├── renderer/
+│   │   ├── render.js        # Combineert thema-templates + content tot HTML (Handlebars)
+│   │   └── publicRouter.js  # Publieke routes: /, /blog, /blog/:slug, /:slug
 │   └── routes/
 │       ├── index.js        # Bundelt alle routes
 │       ├── auth.js          # Registreren / inloggen / eigen profiel
 │       ├── pages.js         # CRUD pagina's
 │       ├── posts.js         # CRUD posts (incl. categorie & tags)
 │       ├── categories.js    # CRUD categorieën
-│       └── media.js         # Bestand-uploads (Multer)
+│       ├── media.js         # Bestand-uploads (Multer)
+│       ├── themes.js        # CRUD thema's + templates
+│       └── templates.js     # Update/verwijder een enkele template
 └── uploads/                 # Geüploade bestanden (lokaal, wordt automatisch aangemaakt)
 ```
 
@@ -158,4 +207,4 @@ Gebruik `requireRole("ADMIN")` of `requireRole("ADMIN", "EDITOR")` in nieuwe rou
 
 ## Volgende fase
 
-Fase 3: het thema-systeem — `themes` en `theme_templates` beheren, en de Public Renderer die thema + content samenvoegt tot de HTML die bezoekers te zien krijgen.
+Fase 4: de WYSIWYG theme-editor — GrapesJS integreren in een admin-paneel, zodat je thema's en pagina's visueel kunt bewerken in plaats van via losse API-aanroepen met kant-en-klare HTML.
