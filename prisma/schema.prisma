@@ -1,0 +1,182 @@
+// Prisma schema voor het CMS
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  AUTHOR
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum TemplateType {
+  HEADER
+  FOOTER
+  PAGE
+  POST
+  ARCHIVE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         Role     @default(AUTHOR)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  posts  Post[]
+  media  Media[]
+
+  @@map("users")
+}
+
+model Theme {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(false)
+  config    Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  templates ThemeTemplate[]
+  pages     Page[]
+
+  @@map("themes")
+}
+
+model ThemeTemplate {
+  id        String       @id @default(cuid())
+  themeId   String
+  theme     Theme        @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  type      TemplateType
+  name      String
+  html      String       @default("")
+  css       String       @default("")
+  updatedAt DateTime     @updatedAt
+  createdAt DateTime     @default(now())
+
+  pages Page[]
+
+  @@map("theme_templates")
+}
+
+model Page {
+  id              String         @id @default(cuid())
+  themeId         String?
+  theme           Theme?         @relation(fields: [themeId], references: [id])
+  templateId      String?
+  template        ThemeTemplate? @relation(fields: [templateId], references: [id])
+  title           String
+  slug            String         @unique
+  content         Json           @default("{}")
+  status          ContentStatus  @default(DRAFT)
+  seoTitle        String?
+  seoDescription  String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("pages")
+}
+
+model Post {
+  id          String        @id @default(cuid())
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  title       String
+  slug        String        @unique
+  content     Json          @default("{}")
+  categoryId  String?
+  category    Category?     @relation(fields: [categoryId], references: [id])
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tags PostTag[]
+
+  @@map("posts")
+}
+
+model Category {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  posts Post[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  posts PostTag[]
+
+  @@map("tags")
+}
+
+model PostTag {
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@map("post_tags")
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  filename     String
+  path         String
+  mimeType     String
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@map("media")
+}
+
+model Menu {
+  id   String @id @default(cuid())
+  name String
+
+  items MenuItem[]
+
+  @@map("menus")
+}
+
+model MenuItem {
+  id        String  @id @default(cuid())
+  menuId    String
+  menu      Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  label     String
+  url       String?
+  sortOrder Int     @default(0)
+
+  @@map("menu_items")
+}
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("settings")
+}
