@@ -1,8 +1,9 @@
-# CMS Project — Fase 1, 2 & 3
+# CMS Project — Fase 1, 2, 3 & 4
 
 Fase 1: databaseschema (Prisma) + authenticatie-API (Express).
 Fase 2: CRUD voor pagina's, posts, categorieën en media-uploads.
 Fase 3: thema-systeem (thema's + templates) en de Public Renderer die de daadwerkelijke bezoekerspagina's toont.
+Fase 4: WYSIWYG theme-editor (GrapesJS) in een apart React admin-paneel (map `admin/`).
 
 ## Vereisten
 
@@ -161,6 +162,45 @@ curl -X POST http://localhost:4000/api/pages \
 
 Open daarna `http://localhost:4000/over-ons` in je browser.
 
+## Fase 4 — Admin-paneel met WYSIWYG-editor (GrapesJS)
+
+Het admin-paneel staat in de map `admin/` en is een apart React-project (eigen `package.json`, draait op een andere poort). Het praat met dezelfde backend-API.
+
+### Installatie (lokaal ontwikkelen)
+
+```bash
+cd admin
+npm install
+cp .env.example .env
+# Pas VITE_API_URL aan als je API niet op localhost:4000 draait
+npm run dev
+```
+
+Open `http://localhost:5173`, log in met het account dat je bij fase 1 hebt geregistreerd (de eerste registratie is ADMIN).
+
+### Wat je ermee kunt
+
+| Onderdeel | Wat je kunt doen |
+|---|---|
+| Thema's | Nieuw thema aanmaken, activeren |
+| Templates | Per thema een HEADER/FOOTER/PAGE/POST/ARCHIVE-template toevoegen, en de HTML/CSS visueel bewerken met slepen-en-neerzetten |
+| Pagina's | Nieuwe pagina aanmaken, content visueel bewerken, publiceren/naar concept zetten, verwijderen |
+
+Wijzigingen die je in de editor opslaat, zijn **direct zichtbaar** op de publieke site (fase 3) — de editor slaat gewoon HTML/CSS op via dezelfde `/api/templates/:id` en `/api/pages/:id`-endpoints die je al had.
+
+### Bouwen voor productie
+
+```bash
+cd admin
+npm run build
+```
+
+Dit levert een map `admin/dist/` op met statische bestanden (HTML/CSS/JS) — geen Node.js nodig om dit te hosten, alleen een webserver die bestanden serveert.
+
+### Live zetten naast je bestaande site
+
+De eenvoudigste aanpak: serveer het admin-paneel op een subdomein (bv. `admin.reitsema.tech`), met een eigen Nginx-server-block die naar `admin/dist` wijst, terwijl je API gewoon op het hoofddomein blijft draaien. Zie `DEPLOY.md` voor de volledige Nginx-configuratie hiervoor.
+
 ## Database bekijken
 
 Prisma heeft een ingebouwde gui om je database te inspecteren:
@@ -193,8 +233,31 @@ cms-project/
 │       ├── categories.js    # CRUD categorieën
 │       ├── media.js         # Bestand-uploads (Multer)
 │       ├── themes.js        # CRUD thema's + templates
-│       └── templates.js     # Update/verwijder een enkele template
+│       └── templates.js     # Ophalen/bijwerken/verwijderen van één template
 └── uploads/                 # Geüploade bestanden (lokaal, wordt automatisch aangemaakt)
+
+admin/                        # Apart React-project: het beheerpaneel met GrapesJS
+├── package.json
+├── vite.config.js
+├── index.html
+└── src/
+    ├── main.jsx
+    ├── App.jsx               # Routing
+    ├── styles.css
+    ├── lib/api.js            # Fetch-wrapper naar de backend-API
+    ├── context/AuthContext.jsx
+    ├── components/
+    │   ├── Layout.jsx         # Zijbalk-navigatie
+    │   ├── ProtectedRoute.jsx # Vereist login
+    │   └── GrapesEditor.jsx   # Herbruikbare WYSIWYG-editor
+    └── pages/
+        ├── LoginPage.jsx
+        ├── DashboardPage.jsx
+        ├── ThemesPage.jsx
+        ├── ThemeDetailPage.jsx
+        ├── TemplateEditorPage.jsx
+        ├── PagesPage.jsx
+        └── PageEditorPage.jsx
 ```
 
 ## Rollen
@@ -207,4 +270,9 @@ Gebruik `requireRole("ADMIN")` of `requireRole("ADMIN", "EDITOR")` in nieuwe rou
 
 ## Volgende fase
 
-Fase 4: de WYSIWYG theme-editor — GrapesJS integreren in een admin-paneel, zodat je thema's en pagina's visueel kunt bewerken in plaats van via losse API-aanroepen met kant-en-klare HTML.
+Het CMS is nu functioneel compleet volgens het oorspronkelijke ontwerp: authenticatie, content (pagina's/posts/media), een thema-systeem, een publieke renderer, én een visuele editor. Mogelijke vervolgstappen naar keuze:
+
+- Een editor voor **posts** toevoegen aan het admin-paneel (zelfde patroon als pagina's).
+- Een instellingenpagina (site-naam, logo) gekoppeld aan de `settings`-tabel.
+- Een menu-builder gekoppeld aan de `menus`/`menu_items`-tabellen.
+- SEO-velden, media-bibliotheek en gebruikersbeheer in het admin-paneel.

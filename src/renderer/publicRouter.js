@@ -33,6 +33,7 @@ router.get("/", async (req, res) => {
         seoTitle: homePage.seoTitle,
         seoDescription: homePage.seoDescription,
       },
+      extraCss: (homePage.content && homePage.content.css) || "",
     });
     return res.send(html);
   }
@@ -95,6 +96,7 @@ router.get("/blog/:slug", async (req, res) => {
     templates: theme.templates,
     main: postTemplate,
     data: { title: post.title, content: (post.content && post.content.html) || "" },
+    extraCss: (post.content && post.content.css) || "",
   });
   res.send(html);
 });
@@ -127,6 +129,7 @@ router.get("/:slug", async (req, res) => {
       seoTitle: page.seoTitle,
       seoDescription: page.seoDescription,
     },
+    extraCss: (page.content && page.content.css) || "",
   });
   res.send(html);
 });

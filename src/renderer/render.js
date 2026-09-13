@@ -18,7 +18,7 @@ function compile(template, data) {
  * `data` bevat de variabelen die met {{ }} in de templates gebruikt kunnen worden,
  * zoals title, content, seoTitle, seoDescription.
  */
-function renderDocument({ theme, templates, main, data }) {
+function renderDocument({ theme, templates, main, data, extraCss = "" }) {
   const mergedData = {
     ...GLOBAL_DEFAULTS,
     year: new Date().getFullYear(),
@@ -27,8 +27,10 @@ function renderDocument({ theme, templates, main, data }) {
 
   const header = templates.find((t) => t.type === "HEADER");
   const footer = templates.find((t) => t.type === "FOOTER");
-  const css = templates
-    .map((t) => t.css)
+  const css = [
+    templates.map((t) => t.css).filter(Boolean).join("\n"),
+    extraCss,
+  ]
     .filter(Boolean)
     .join("\n");
 

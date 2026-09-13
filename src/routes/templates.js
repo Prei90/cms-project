@@ -11,6 +11,13 @@ const templateUpdateSchema = z.object({
   css: z.string().optional(),
 });
 
+// GET /api/templates/:id — één template ophalen (voor de editor)
+router.get("/:id", async (req, res) => {
+  const template = await prisma.themeTemplate.findUnique({ where: { id: req.params.id } });
+  if (!template) return res.status(404).json({ error: "Template niet gevonden." });
+  res.json({ template });
+});
+
 // PUT /api/templates/:id — html/css van een template bijwerken
 // (dit endpoint gebruikt de GrapesJS-editor straks om de visuele wijzigingen op te slaan)
 router.put("/:id", requireAuth, requireRole("ADMIN", "EDITOR"), async (req, res) => {

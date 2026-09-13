@@ -186,6 +186,51 @@ npx prisma migrate deploy
 pm2 restart cms-api
 ```
 
+## Het admin-paneel (fase 4) live zetten
+
+Het admin-paneel (`admin/`) is een apart React-project dat je als statische bestanden bouwt en via Nginx serveert — er is geen aparte Node-server voor nodig.
+
+```bash
+cd /var/www/cms-project/admin
+npm install
+cp .env.example .env
+nano .env   # zet VITE_API_URL op https://jouwdomein.nl/api
+npm run build
+```
+
+Dit levert `admin/dist/` op. Maak een los Nginx server-block voor een subdomein, bv. `admin.jouwdomein.nl`:
+
+```bash
+sudo nano /etc/nginx/sites-available/cms-admin
+```
+
+```nginx
+server {
+    listen 80;
+    server_name admin.jouwdomein.nl;
+
+    root /var/www/cms-project/admin/dist;
+    index index.html;
+
+    location / {
+        try_files $uri /index.html;
+    }
+}
+```
+
+Activeren en SSL regelen, net als bij de hoofdsite:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/cms-admin /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot --nginx -d admin.jouwdomein.nl
+```
+
+Zorg dat je een DNS A-record voor `admin.jouwdomein.nl` naar hetzelfde IP hebt staan voordat je Certbot draait.
+
+Na een update van de admin-code: `git pull`, `npm install`, `npm run build` — de nieuwe `dist/`-bestanden zijn direct live, een herstart is niet nodig omdat Nginx alleen statische bestanden serveert.
+
 ## Checklist samengevat
 
 | Onderdeel | Doel |
