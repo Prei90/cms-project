@@ -7,6 +7,9 @@ const publicRouter = require("./renderer/publicRouter");
 
 const app = express();
 
+// Nodig zodat req.hostname correct het originele domein bevat als de app achter Nginx draait
+app.set("trust proxy", true);
+
 app.use(cors());
 app.use(express.json());
 

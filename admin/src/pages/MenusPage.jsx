@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { apiListThemes, apiCreateTheme, apiActivateTheme } from "../lib/api";
+import { apiListMenus, apiCreateMenu, apiDeleteMenu } from "../lib/api";
 
-export default function ThemesPage() {
+export default function MenusPage() {
   const { siteId } = useParams();
   const { token } = useAuth();
-  const [themes, setThemes] = useState([]);
+  const [menus, setMenus] = useState([]);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const data = await apiListThemes(siteId, token);
-    setThemes(data.themes);
+    const data = await apiListMenus(siteId, token);
+    setMenus(data.menus);
     setLoading(false);
   }
 
@@ -26,7 +26,7 @@ export default function ThemesPage() {
     e.preventDefault();
     setError("");
     try {
-      await apiCreateTheme(siteId, { name }, token);
+      await apiCreateMenu(siteId, { name }, token);
       setName("");
       load();
     } catch (err) {
@@ -34,8 +34,9 @@ export default function ThemesPage() {
     }
   }
 
-  async function handleActivate(id) {
-    await apiActivateTheme(siteId, id, token);
+  async function handleDelete(menu) {
+    if (!window.confirm(`Menu "${menu.name}" verwijderen?`)) return;
+    await apiDeleteMenu(siteId, menu.id, token);
     load();
   }
 
@@ -43,15 +44,18 @@ export default function ThemesPage() {
 
   return (
     <div>
-      <h2>Thema's</h2>
+      <h2>Menu's</h2>
+      <p className="info">
+        De publieke site gebruikt automatisch het eerst aangemaakte menu als hoofdnavigatie.
+      </p>
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Nieuw thema</h3>
+        <h3 style={{ marginTop: 0 }}>Nieuw menu</h3>
         {error && <p className="error">{error}</p>}
         <form onSubmit={handleCreate}>
-          <label htmlFor="theme-name">Naam</label>
+          <label htmlFor="menu-name">Naam</label>
           <input
             className="input"
-            id="theme-name"
+            id="menu-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -62,18 +66,16 @@ export default function ThemesPage() {
         </form>
       </div>
       <div className="card">
-        {themes.length === 0 && <p className="info">Nog geen thema's.</p>}
-        {themes.map((theme) => (
-          <div className="list-item" key={theme.id}>
+        {menus.length === 0 && <p className="info">Nog geen menu's.</p>}
+        {menus.map((menu) => (
+          <div className="list-item" key={menu.id}>
             <div>
-              <Link to={`/sites/${siteId}/themes/${theme.id}`}>{theme.name}</Link>{" "}
-              {theme.isActive && <span className="badge badge-active">Actief</span>}
+              <Link to={`/sites/${siteId}/menus/${menu.id}`}>{menu.name}</Link>{" "}
+              <span className="badge">{menu.items.length} items</span>
             </div>
-            {!theme.isActive && (
-              <button className="btn" onClick={() => handleActivate(theme.id)}>
-                Activeren
-              </button>
-            )}
+            <button className="btn btn-danger" onClick={() => handleDelete(menu)}>
+              Verwijderen
+            </button>
           </div>
         ))}
       </div>

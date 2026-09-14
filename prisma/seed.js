@@ -1,21 +1,28 @@
+// Optioneel seed-script — handig om lokaal snel een testsite te hebben.
+// Op productie maak je sites gewoon aan via het admin-paneel (POST /api/sites),
+// met het echte domein van die site.
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const theme = await prisma.theme.upsert({
-    where: { slug: "basis-thema" },
+  const site = await prisma.site.upsert({
+    where: { domain: "localhost" },
     update: {},
-    create: {
-      name: "Basis thema",
-      slug: "basis-thema",
-      isActive: true,
-      config: {},
-    },
+    create: { name: "Voorbeeldsite", domain: "localhost" },
+  });
+  console.log("Site:", site.domain);
+
+  const theme = await prisma.theme.upsert({
+    where: { siteId_slug: { siteId: site.id, slug: "basis-thema" } },
+    update: {},
+    create: { siteId: site.id, name: "Basis thema", slug: "basis-thema", isActive: true, config: {} },
   });
 
-  // Zorg dat dit het enige actieve thema is
-  await prisma.theme.updateMany({ where: { id: { not: theme.id } }, data: { isActive: false } });
+  await prisma.theme.updateMany({
+    where: { siteId: site.id, id: { not: theme.id } },
+    data: { isActive: false },
+  });
   if (!theme.isActive) {
     await prisma.theme.update({ where: { id: theme.id }, data: { isActive: true } });
   }
@@ -24,8 +31,8 @@ async function main() {
     {
       type: "HEADER",
       name: "Standaard header",
-      html: `<header><h1>{{siteName}}</h1><nav><a href="/">Home</a> · <a href="/blog">Blog</a></nav></header>`,
-      css: "header{padding:1.5rem;background:#111827;color:#fff;font-family:sans-serif;} header a{color:#fff;text-decoration:none;margin-right:0.5rem;} header h1{margin:0 0 0.5rem 0;font-size:1.5rem;}",
+      html: `<header>{{#if logoUrl}}<img src="{{logoUrl}}" alt="{{siteName}}" class="site-logo">{{/if}}<h1>{{siteName}}</h1><nav>{{#each menuItems}}<a href="{{this.url}}">{{this.label}}</a>{{/each}}</nav></header>`,
+      css: "header{padding:1.5rem;background:#111827;color:#fff;font-family:sans-serif;} header a{color:#fff;text-decoration:none;margin-right:0.75rem;} header h1{margin:0 0 0.5rem 0;font-size:1.5rem;} .site-logo{max-height:40px;display:block;margin-bottom:0.5rem;}",
     },
     {
       type: "FOOTER",
@@ -61,18 +68,19 @@ async function main() {
   }
 
   const homePage = await prisma.page.upsert({
-    where: { slug: "home" },
+    where: { siteId_slug: { siteId: site.id, slug: "home" } },
     update: {},
     create: {
+      siteId: site.id,
       title: "Welkom",
       slug: "home",
       themeId: theme.id,
-      content: { html: "<p>Dit is je eerste pagina. Pas deze aan via de API, of straks via de WYSIWYG-editor.</p>" },
+      content: { html: "<p>Dit is je eerste pagina. Pas deze aan via het admin-paneel.</p>" },
       status: "PUBLISHED",
     },
   });
 
-  console.log("Seed voltooid:", { theme: theme.slug, homePage: homePage.slug });
+  console.log("Seed voltooid:", { site: site.domain, theme: theme.slug, homePage: homePage.slug });
 }
 
 main()

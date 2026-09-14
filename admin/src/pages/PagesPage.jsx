@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { apiListPages, apiCreatePage, apiUpdatePage, apiDeletePage } from "../lib/api";
 
 export default function PagesPage() {
+  const { siteId } = useParams();
   const { token } = useAuth();
   const [pages, setPages] = useState([]);
   const [title, setTitle] = useState("");
@@ -11,7 +12,7 @@ export default function PagesPage() {
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const data = await apiListPages(token);
+    const data = await apiListPages(siteId, token);
     setPages(data.pages);
     setLoading(false);
   }
@@ -19,13 +20,13 @@ export default function PagesPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [siteId]);
 
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
     try {
-      await apiCreatePage({ title, content: { html: "<h1>Nieuwe pagina</h1>" } }, token);
+      await apiCreatePage(siteId, { title, content: { html: "<h1>Nieuwe pagina</h1>" } }, token);
       setTitle("");
       load();
     } catch (err) {
@@ -34,17 +35,13 @@ export default function PagesPage() {
   }
 
   async function togglePublish(page) {
-    await apiUpdatePage(
-      page.id,
-      { status: page.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED" },
-      token
-    );
+    await apiUpdatePage(siteId, page.id, { status: page.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED" }, token);
     load();
   }
 
   async function handleDelete(page) {
     if (!window.confirm(`Pagina "${page.title}" verwijderen?`)) return;
-    await apiDeletePage(page.id, token);
+    await apiDeletePage(siteId, page.id, token);
     load();
   }
 
@@ -81,7 +78,7 @@ export default function PagesPage() {
               </span>
             </div>
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Link className="btn" to={`/pages/${page.id}/edit`}>
+              <Link className="btn" to={`/sites/${siteId}/pages/${page.id}/edit`}>
                 Bewerken
               </Link>
               <button className="btn" onClick={() => togglePublish(page)}>

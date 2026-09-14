@@ -4,9 +4,8 @@ const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
 const prisma = require("../lib/prisma");
-const { requireAuth } = require("../middleware/auth");
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
 const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -39,8 +38,8 @@ const upload = multer({
   },
 });
 
-// POST /api/media/upload — vereist login
-router.post("/upload", requireAuth, (req, res) => {
+// POST /api/sites/:siteId/media/upload
+router.post("/upload", (req, res) => {
   upload.single("file")(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ error: err.message });
@@ -51,6 +50,7 @@ router.post("/upload", requireAuth, (req, res) => {
 
     const media = await prisma.media.create({
       data: {
+        siteId: req.params.siteId,
         filename: req.file.originalname,
         path: `/uploads/${req.file.filename}`,
         mimeType: req.file.mimetype,
@@ -61,28 +61,29 @@ router.post("/upload", requireAuth, (req, res) => {
   });
 });
 
-// GET /api/media — lijst van alle media
-router.get("/", requireAuth, async (req, res) => {
+// GET /api/sites/:siteId/media
+router.get("/", async (req, res) => {
   const media = await prisma.media.findMany({
+    where: { siteId: req.params.siteId },
     orderBy: { createdAt: "desc" },
     include: { uploadedBy: { select: { id: true, name: true, email: true } } },
   });
   res.json({ media });
 });
 
-// DELETE /api/media/:id — eigenaar of admin
-router.delete("/:id", requireAuth, async (req, res) => {
-  const existing = await prisma.media.findUnique({ where: { id: req.params.id } });
+// DELETE /api/sites/:siteId/media/:id — eigenaar of site-ADMIN
+router.delete("/:id", async (req, res) => {
+  const existing = await prisma.media.findFirst({ where: { id: req.params.id, siteId: req.params.siteId } });
   if (!existing) return res.status(404).json({ error: "Bestand niet gevonden." });
 
-  if (req.user.role !== "ADMIN" && existing.uploadedById !== req.user.id) {
+  if (req.siteRole !== "ADMIN" && existing.uploadedById !== req.user.id) {
     return res.status(403).json({ error: "Je mag alleen je eigen bestanden verwijderen." });
   }
 
   const filePath = path.join(UPLOAD_DIR, path.basename(existing.path));
-  fs.unlink(filePath, () => {}); // best-effort, negeer fout als bestand al weg is
+  fs.unlink(filePath, () => {});
 
-  await prisma.media.delete({ where: { id: req.params.id } });
+  await prisma.media.delete({ where: { id: existing.id } });
   res.status(204).send();
 });
 

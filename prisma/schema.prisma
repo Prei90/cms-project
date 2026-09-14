@@ -1,4 +1,4 @@
-// Prisma schema voor het CMS
+// Prisma schema voor het CMS — multi-site versie
 // Docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -10,7 +10,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Platformbreed: SUPERADMIN ziet/beheert alle sites, USER moet per site worden toegevoegd
 enum Role {
+  SUPERADMIN
+  USER
+}
+
+// Rol van een gebruiker BINNEN één specifieke site
+enum SiteRole {
   ADMIN
   EDITOR
   AUTHOR
@@ -34,20 +41,56 @@ model User {
   email        String   @unique
   passwordHash String
   name         String?
-  role         Role     @default(AUTHOR)
+  role         Role     @default(USER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  posts  Post[]
-  media  Media[]
+  siteMemberships SiteUser[]
+  posts           Post[]
+  media           Media[]
 
   @@map("users")
 }
 
-model Theme {
+model Site {
   id        String   @id @default(cuid())
   name      String
-  slug      String   @unique
+  domain    String   @unique // bv. "site-a.nl" — bepaalt welke site een bezoeker te zien krijgt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members    SiteUser[]
+  themes     Theme[]
+  pages      Page[]
+  posts      Post[]
+  categories Category[]
+  tags       Tag[]
+  media      Media[]
+  menus      Menu[]
+  settings   Setting[]
+
+  @@map("sites")
+}
+
+model SiteUser {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      SiteRole @default(AUTHOR)
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, userId])
+  @@map("site_users")
+}
+
+model Theme {
+  id        String   @id @default(cuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
   isActive  Boolean  @default(false)
   config    Json     @default("{}")
   createdAt DateTime @default(now())
@@ -56,6 +99,7 @@ model Theme {
   templates ThemeTemplate[]
   pages     Page[]
 
+  @@unique([siteId, slug])
   @@map("themes")
 }
 
@@ -76,29 +120,36 @@ model ThemeTemplate {
 }
 
 model Page {
-  id              String         @id @default(cuid())
-  themeId         String?
-  theme           Theme?         @relation(fields: [themeId], references: [id])
-  templateId      String?
-  template        ThemeTemplate? @relation(fields: [templateId], references: [id])
-  title           String
-  slug            String         @unique
-  content         Json           @default("{}")
-  status          ContentStatus  @default(DRAFT)
-  seoTitle        String?
-  seoDescription  String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  siteId         String
+  site           Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  themeId        String?
+  theme          Theme?         @relation(fields: [themeId], references: [id])
+  templateId     String?
+  template       ThemeTemplate? @relation(fields: [templateId], references: [id])
+  title          String
+  slug           String
+  content        Json           @default("{}")
+  status         ContentStatus  @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
+  menuItems MenuItem[]
+
+  @@unique([siteId, slug])
   @@map("pages")
 }
 
 model Post {
   id          String        @id @default(cuid())
+  siteId      String
+  site        Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
   authorId    String
   author      User          @relation(fields: [authorId], references: [id])
   title       String
-  slug        String        @unique
+  slug        String
   content     Json          @default("{}")
   categoryId  String?
   category    Category?     @relation(fields: [categoryId], references: [id])
@@ -109,26 +160,33 @@ model Post {
 
   tags PostTag[]
 
+  @@unique([siteId, slug])
   @@map("posts")
 }
 
 model Category {
-  id   String @id @default(cuid())
-  name String
-  slug String @unique
+  id     String @id @default(cuid())
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name   String
+  slug   String
 
   posts Post[]
 
+  @@unique([siteId, slug])
   @@map("categories")
 }
 
 model Tag {
-  id   String @id @default(cuid())
-  name String
-  slug String @unique
+  id     String @id @default(cuid())
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name   String
+  slug   String
 
   posts PostTag[]
 
+  @@unique([siteId, slug])
   @@map("tags")
 }
 
@@ -144,6 +202,8 @@ model PostTag {
 
 model Media {
   id           String   @id @default(cuid())
+  siteId       String
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   filename     String
   path         String
   mimeType     String
@@ -155,8 +215,10 @@ model Media {
 }
 
 model Menu {
-  id   String @id @default(cuid())
-  name String
+  id     String @id @default(cuid())
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name   String
 
   items MenuItem[]
 
@@ -168,15 +230,21 @@ model MenuItem {
   menuId    String
   menu      Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
   label     String
-  url       String?
+  url       String? // los adres, bv. "https://externe-link.nl" — wordt genegeerd als pageId is gezet
+  pageId    String?
+  page      Page?   @relation(fields: [pageId], references: [id])
   sortOrder Int     @default(0)
 
   @@map("menu_items")
 }
 
 model Setting {
-  key   String @id
-  value Json
+  id     String @id @default(cuid())
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  key    String
+  value  Json
 
+  @@unique([siteId, key])
   @@map("settings")
 }

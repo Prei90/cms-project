@@ -6,7 +6,7 @@ import { apiGetTheme, apiCreateTemplate } from "../lib/api";
 const TYPES = ["HEADER", "FOOTER", "PAGE", "POST", "ARCHIVE"];
 
 export default function ThemeDetailPage() {
-  const { themeId } = useParams();
+  const { siteId, themeId } = useParams();
   const { token } = useAuth();
   const [theme, setTheme] = useState(null);
   const [type, setType] = useState("PAGE");
@@ -14,20 +14,21 @@ export default function ThemeDetailPage() {
   const [error, setError] = useState("");
 
   async function load() {
-    const data = await apiGetTheme(themeId, token);
+    const data = await apiGetTheme(siteId, themeId, token);
     setTheme(data.theme);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId]);
+  }, [siteId, themeId]);
 
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
     try {
       await apiCreateTemplate(
+        siteId,
         themeId,
         { type, name, html: "<h1>Nieuwe template</h1>", css: "" },
         token
@@ -81,7 +82,7 @@ export default function ThemeDetailPage() {
             <div>
               <span className="badge">{tpl.type}</span> {tpl.name}
             </div>
-            <Link className="btn" to={`/templates/${tpl.id}/edit`}>
+            <Link className="btn" to={`/sites/${siteId}/templates/${tpl.id}/edit`}>
               Bewerken
             </Link>
           </div>

@@ -186,6 +186,8 @@ npx prisma migrate deploy
 pm2 restart cms-api
 ```
 
+> **Let op bij de overstap naar fase 5 (multi-site):** het databaseschema is fundamenteel veranderd (elke tabel kreeg een verplichte site-koppeling). Bestaande data past niet meer in het nieuwe schema. Draai daarom eenmalig `npx prisma db push --force-reset` in plaats van de gewone migratie-commando's — dit **verwijdert alle bestaande data** en zet de database opnieuw op volgens het nieuwe schema. Maak daarna via het admin-paneel opnieuw je site(s) aan.
+
 ## Het admin-paneel (fase 4) live zetten
 
 Het admin-paneel (`admin/`) is een apart React-project dat je als statische bestanden bouwt en via Nginx serveert — er is geen aparte Node-server voor nodig.
@@ -241,3 +243,43 @@ Na een update van de admin-code: `git pull`, `npm install`, `npm run build` — 
 | Nginx | Reverse proxy, verdeelt verkeer naar poort 4000 |
 | Certbot | Gratis SSL/HTTPS |
 | ufw | Firewall, alleen 22/80/443 open |
+
+## Een extra website (domein) toevoegen (fase 5, multi-site)
+
+Vanaf fase 5 draait er nog steeds maar **één** Node-app en **één** database op je VPS — die bedient alle sites tegelijk, want de app herkent per binnenkomend verzoek welke site het is aan de hand van het domein. Voor elk nieuw domein moet je wel:
+
+1. **DNS**: een A-record voor het nieuwe domein naar het IP van je VPS.
+2. **Nginx**: een nieuw server-block, identiek aan je bestaande config maar met een ander `server_name`, dat naar dezelfde poort 4000 proxyt:
+
+```bash
+sudo nano /etc/nginx/sites-available/klant-a
+```
+
+```nginx
+server {
+    listen 80;
+    server_name klant-a.nl www.klant-a.nl;
+
+    client_max_body_size 15M;
+
+    location / {
+        proxy_pass http://localhost:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/klant-a /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot --nginx -d klant-a.nl -d www.klant-a.nl
+```
+
+3. **In het admin-paneel**: maak de site aan (`SitesPage`) met exact hetzelfde domein (`klant-a.nl`, zonder `www.` en zonder `https://`) als bij `server_name` hierboven.
+
+Dat is alles — geen herstart van de Node-app nodig, want de site-herkenning gebeurt live per verzoek op basis van het domein.

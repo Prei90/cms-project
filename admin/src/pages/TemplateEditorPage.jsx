@@ -5,7 +5,7 @@ import GrapesEditor from "../components/GrapesEditor";
 import { apiGetTemplate, apiUpdateTemplate } from "../lib/api";
 
 export default function TemplateEditorPage() {
-  const { templateId } = useParams();
+  const { siteId, templateId } = useParams();
   const { token } = useAuth();
   const navigate = useNavigate();
   const [template, setTemplate] = useState(null);
@@ -13,15 +13,15 @@ export default function TemplateEditorPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    apiGetTemplate(templateId, token).then((data) => setTemplate(data.template));
+    apiGetTemplate(siteId, templateId, token).then((data) => setTemplate(data.template));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId]);
+  }, [siteId, templateId]);
 
   async function handleSave({ html, css }) {
     setSaving(true);
     setMessage("");
     try {
-      await apiUpdateTemplate(templateId, { html, css }, token);
+      await apiUpdateTemplate(siteId, templateId, { html, css }, token);
       setMessage("Opgeslagen.");
     } catch (err) {
       setMessage(err.message);

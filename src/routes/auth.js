@@ -27,7 +27,9 @@ function signToken(user) {
 }
 
 // POST /api/auth/register
-// De allereerste geregistreerde gebruiker wordt automatisch ADMIN.
+// De allereerste geregistreerde gebruiker wordt automatisch SUPERADMIN (platformbeheerder).
+// Alle volgende registraties zijn gewone USER — die moet je daarna aan een specifieke
+// website toevoegen via POST /api/sites/:siteId/users.
 router.post("/register", async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -41,7 +43,7 @@ router.post("/register", async (req, res) => {
   }
 
   const userCount = await prisma.user.count();
-  const role = userCount === 0 ? "ADMIN" : "AUTHOR";
+  const role = userCount === 0 ? "SUPERADMIN" : "USER";
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
